@@ -1,11 +1,20 @@
 package mascaras
 
 import (
+	"context"
 	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"log"
+	"net/url"
+	"os"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	gconf "github.com/kayac/go-config"
 )
 
@@ -50,9 +59,18 @@ func DefaultConfig() *Config {
 	}
 }
 
-func LoadConfig(path string) (*Config, error) {
+func LoadConfig(loc string) (*Config, error) {
+	r, err := openLocation(loc)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	bs, err := io.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
 	cfg := DefaultConfig()
-	return cfg, gconf.LoadWithEnv(&cfg, path)
+	return cfg, gconf.LoadWithEnvBytes(&cfg, bs)
 }
 
 func (cfg *Config) SetFlags(f *flag.FlagSet) {
@@ -180,4 +198,54 @@ func (cfg *ExportTaskConfig) exportOnly() []string {
 		return nil
 	}
 	return strings.Split(cfg.ExportOnly, ",")
+}
+
+func openLocation(loc string) (io.ReadCloser, error) {
+	if u, err := url.Parse(loc); err == nil {
+		if u.Scheme == "" {
+			return os.Open(loc)
+		}
+		if u.Scheme == "file" {
+			return os.Open(u.Path)
+		}
+		if u.Scheme == "s3" {
+			return openS3(u)
+		}
+		return nil, fmt.Errorf("schema %s is not support, can not get %s", u.Scheme, loc)
+	}
+	return os.Open(loc)
+}
+
+func openS3(u *url.URL) (io.ReadCloser, error) {
+	region := os.Getenv("AWS_DEFAULT_REGION")
+	if region == "" {
+		var err error
+		region, err = s3manager.GetBucketRegion(
+			context.Background(),
+			session.Must(session.NewSession()),
+			u.Host,
+			"us-east-1",
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+	sess, err := session.NewSessionWithOptions(session.Options{
+		Config: aws.Config{
+			Region: aws.String(region),
+		},
+		SharedConfigState: session.SharedConfigEnable,
+	})
+	if err != nil {
+		return nil, err
+	}
+	svc := s3.New(sess)
+	result, err := svc.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(u.Host),
+		Key:    aws.String(u.Path),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.Body, err
 }

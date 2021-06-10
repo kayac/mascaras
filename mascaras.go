@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -43,13 +42,13 @@ func New(cfg *Config, cfgs ...*aws.Config) (*App, error) {
 	}, err
 }
 
-func readSQL(filepath string) (string, error) {
-	fp, err := os.Open(filepath)
+func readSQL(location string) (string, error) {
+	r, err := openLocation(location)
 	if err != nil {
 		return "", err
 	}
-	defer fp.Close()
-	bs, err := io.ReadAll(fp)
+	defer r.Close()
+	bs, err := io.ReadAll(r)
 	if err != nil {
 		return "", err
 	}
