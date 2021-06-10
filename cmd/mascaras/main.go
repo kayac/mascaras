@@ -58,15 +58,10 @@ func main() {
 		flag.Usage()
 		return
 	}
-	sqlFile := os.Getenv(envPrefix + "SQL_FILE")
-	sourceDBClusterIdentifier := os.Getenv(envPrefix + "SRC_DB_CLUSTER")
+	var sqlFile, sourceDBClusterIdentifier string
 	if flag.NArg() == 2 {
 		sqlFile = flag.Arg(0)
 		sourceDBClusterIdentifier = flag.Arg(1)
-	}
-	if sqlFile == "" || sourceDBClusterIdentifier == "" {
-		flag.Usage()
-		log.Fatalln("<source db cluster identifier> and <sql file>  is required")
 	}
 
 	if debug {
