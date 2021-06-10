@@ -209,6 +209,7 @@ func openLocation(loc string) (io.ReadCloser, error) {
 			return os.Open(u.Path)
 		}
 		if u.Scheme == "s3" {
+			log.Println("[debug] get from s3 loc=", loc)
 			return openS3(u)
 		}
 		return nil, fmt.Errorf("schema %s is not support, can not get %s", u.Scheme, loc)
@@ -219,6 +220,7 @@ func openLocation(loc string) (io.ReadCloser, error) {
 func openS3(u *url.URL) (io.ReadCloser, error) {
 	region := os.Getenv("AWS_DEFAULT_REGION")
 	if region == "" {
+		log.Println("[debug] missing region")
 		var err error
 		region, err = s3manager.GetBucketRegion(
 			context.Background(),
@@ -240,6 +242,7 @@ func openS3(u *url.URL) (io.ReadCloser, error) {
 		return nil, err
 	}
 	svc := s3.New(sess)
+	log.Printf("[debug] try get bucket=%s key=%s\n", u.Host, u.Path)
 	result, err := svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
 		Key:    aws.String(u.Path),

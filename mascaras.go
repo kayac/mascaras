@@ -90,6 +90,7 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	if err != nil {
 		return err
 	}
+	log.Println("[debug] sql:", maskSQL)
 	tempDBClusterIdentifier := app.cfg.TempCluster.DBClusterIdentifier
 	if tempDBClusterIdentifier == "" {
 		rstr, err := randstr(10)
