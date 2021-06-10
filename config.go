@@ -5,33 +5,35 @@ import (
 	"flag"
 	"log"
 	"strings"
+
+	gconf "github.com/kayac/go-config"
 )
 
 type Config struct {
-	TempCluster    TempDBClusterConfig
-	DBUserName     string
-	DBUserPassword string
-	Database       string
+	TempCluster    TempDBClusterConfig `json:"temp_cluster,omitempty" yaml:"temp_cluster,omitempty"`
+	DBUserName     string              `json:"db_user_name,omitempty" yaml:"db_user_name,omitempty"`
+	DBUserPassword string              `json:"db_user_password,omitempty" yaml:"db_user_password,omitempty"`
+	Database       string              `json:"database,omitempty" yaml:"database,omitempty"`
 
-	EnableExportTask bool
-	ExportTask       ExportTaskConfig
+	EnableExportTask bool             `json:"enable_export_task,omitempty" yaml:"enable_export_task,omitempty"`
+	ExportTask       ExportTaskConfig `json:"export_task,omitempty" yaml:"export_task,omitempty"`
 }
 
 type TempDBClusterConfig struct {
-	DBClusterIdentifierPrefix string
-	DBClusterIdentifier       string
-	DBInstanceClass           string
-	SecurityGroupIDs          string
-	PubliclyAccessible        bool
+	DBClusterIdentifierPrefix string `json:"db_cluster_identifier_prefix,omitempty" yaml:"db_cluster_identifier_prefix,omitempty"`
+	DBClusterIdentifier       string `json:"db_cluster_identifier,omitempty" yaml:"db_cluster_identifier,omitempty"`
+	DBInstanceClass           string `json:"db_instance_class,omitempty" yaml:"db_instance_class,omitempty"`
+	SecurityGroupIDs          string `json:"security_group_ids,omitempty" yaml:"security_group_ids,omitempty"`
+	PubliclyAccessible        bool   `json:"publicly_accessible,omitempty" yaml:"publicly_accessible,omitempty"`
 }
 
 type ExportTaskConfig struct {
-	TaskIdentifier string
-	IAMRoleArn     string
-	KMSKeyId       string
-	S3Bucket       string
-	S3Prefix       string
-	ExportOnly     string
+	TaskIdentifier string `json:"task_identifier,omitempty" yaml:"task_identifier,omitempty"`
+	IAMRoleArn     string `json:"iam_role_arn,omitempty" yaml:"iam_role_arn,omitempty"`
+	KMSKeyId       string `json:"kms_key_id,omitempty" yaml:"kms_key_id,omitempty"`
+	S3Bucket       string `json:"s3_bucket,omitempty" yaml:"s3_bucket,omitempty"`
+	S3Prefix       string `json:"s3_prefix,omitempty" yaml:"s3_prefix,omitempty"`
+	ExportOnly     string `json:"export_only,omitempty" yaml:"export_only,omitempty"`
 }
 
 func DefaultConfig() *Config {
@@ -44,6 +46,11 @@ func DefaultConfig() *Config {
 		DBUserName:       "root",
 		EnableExportTask: false,
 	}
+}
+
+func LoadConfig(path string) (*Config, error) {
+	cfg := DefaultConfig()
+	return cfg, gconf.LoadWithEnv(&cfg, path)
 }
 
 func (cfg *Config) SetFlags(f *flag.FlagSet) {
@@ -70,7 +77,42 @@ func (cfg *ExportTaskConfig) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cfg.S3Bucket, "export-task-s3-bucket", cfg.S3Bucket, "export-task destination s3 bucket name. required when enable export-task")
 	f.StringVar(&cfg.S3Prefix, "export-task-s3-prefix", cfg.S3Prefix, "export-task execute destination s3 key prefix")
 	f.StringVar(&cfg.ExportOnly, "export-task-export-only", cfg.ExportOnly, "export-task execute destination s3 key prefix")
+}
 
+func coalesceString(str1, str2 string) string {
+	if str1 == "" {
+		return str2
+	}
+	return str1
+}
+
+func (cfg *Config) MergeIn(o *Config) *Config {
+	cfg.TempCluster.MergIn(&o.TempCluster)
+	cfg.DBUserName = coalesceString(o.DBUserName, cfg.DBUserName)
+	cfg.DBUserPassword = coalesceString(o.DBUserPassword, cfg.DBUserPassword)
+	cfg.Database = coalesceString(o.Database, cfg.Database)
+	cfg.EnableExportTask = o.EnableExportTask || cfg.EnableExportTask
+	cfg.ExportTask.MergIn(&o.ExportTask)
+	return cfg
+}
+
+func (cfg *TempDBClusterConfig) MergIn(o *TempDBClusterConfig) *TempDBClusterConfig {
+	cfg.DBClusterIdentifier = coalesceString(o.DBClusterIdentifier, cfg.DBClusterIdentifier)
+	cfg.DBClusterIdentifierPrefix = coalesceString(o.DBClusterIdentifierPrefix, cfg.DBClusterIdentifierPrefix)
+	cfg.DBInstanceClass = coalesceString(o.DBInstanceClass, cfg.DBInstanceClass)
+	cfg.SecurityGroupIDs = coalesceString(o.SecurityGroupIDs, cfg.SecurityGroupIDs)
+	cfg.PubliclyAccessible = o.PubliclyAccessible || cfg.PubliclyAccessible
+	return cfg
+}
+
+func (cfg *ExportTaskConfig) MergIn(o *ExportTaskConfig) *ExportTaskConfig {
+	cfg.TaskIdentifier = coalesceString(o.TaskIdentifier, cfg.TaskIdentifier)
+	cfg.IAMRoleArn = coalesceString(o.IAMRoleArn, cfg.IAMRoleArn)
+	cfg.KMSKeyId = coalesceString(o.KMSKeyId, cfg.KMSKeyId)
+	cfg.S3Bucket = coalesceString(o.S3Bucket, cfg.S3Bucket)
+	cfg.S3Prefix = coalesceString(o.S3Prefix, cfg.S3Prefix)
+	cfg.ExportOnly = coalesceString(o.ExportOnly, cfg.ExportOnly)
+	return cfg
 }
 
 func (cfg *Config) Validate() error {

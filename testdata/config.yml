@@ -1,0 +1,13 @@
+temp_cluster:
+  db_cluster_identifier: test
+  db_instance_class: db.r5.large
+  security_group_ids: sg-12345,sg-354321
+  publicly_accessible: true
+
+db_user_name: admin
+db_user_password: {{ must_env `PASSWORD` }}
+database: dummy
+
+enable_export_task: false
+export_task:
+  task_identifier: test-out

@@ -121,3 +121,42 @@ func setLogOutput(t *testing.T) func() {
 		log.SetOutput(os.Stderr)
 	}
 }
+
+func TestConfigMergeIn(t *testing.T) {
+	os.Setenv("PASSWORD", "super_password")
+	o, err := LoadConfig("testdata/config.yml")
+	require.NoError(t, err)
+	cfg := &Config{
+		TempCluster: TempDBClusterConfig{
+			DBInstanceClass: "db.r5.xlarge",
+		},
+		Database:         "db01",
+		EnableExportTask: true,
+		ExportTask: ExportTaskConfig{
+			IAMRoleArn: "arn:aws:iam::000000000000:role/export-test",
+			KMSKeyId:   "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
+			S3Bucket:   "mascras-test-bucket",
+		},
+	}
+	cfg = o.MergeIn(cfg)
+	expected := &Config{
+		TempCluster: TempDBClusterConfig{
+			DBClusterIdentifierPrefix: "mascaras-",
+			DBClusterIdentifier:       "test",
+			DBInstanceClass:           "db.r5.xlarge",
+			SecurityGroupIDs:          "sg-12345,sg-354321",
+			PubliclyAccessible:        true,
+		},
+		DBUserName:       "admin",
+		DBUserPassword:   "super_password",
+		Database:         "db01",
+		EnableExportTask: true,
+		ExportTask: ExportTaskConfig{
+			TaskIdentifier: "test-out",
+			IAMRoleArn:     "arn:aws:iam::000000000000:role/export-test",
+			KMSKeyId:       "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
+			S3Bucket:       "mascras-test-bucket",
+		},
+	}
+	require.EqualValues(t, expected, cfg)
+}

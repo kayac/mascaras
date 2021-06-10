@@ -30,11 +30,13 @@ const envPrefix = "MASCARAS_"
 
 func main() {
 	var debug, showHelp, showVersion bool
+	var configFile string
 	cfg := mascaras.DefaultConfig()
 	cfg.SetFlags(flag.CommandLine)
 	flag.BoolVar(&debug, "debug", false, "enable debug log")
 	flag.BoolVar(&showVersion, "version", false, "show version")
 	flag.BoolVar(&showHelp, "help", false, "show help")
+	flag.StringVar(&configFile, "config", "", "config file path")
 	flag.VisitAll(func(f *flag.Flag) {
 		name := envPrefix + strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
 		if v, exists := os.LookupEnv(name); exists {
@@ -69,6 +71,13 @@ func main() {
 
 	if debug {
 		filter.MinLevel = logutils.LogLevel("debug")
+	}
+	if configFile != "" {
+		o, err := mascaras.LoadConfig(configFile)
+		if err != nil {
+			log.Fatalf("[error] load config %s", err.Error())
+		}
+		cfg = o.MergeIn(cfg)
 	}
 	log.SetOutput(filter)
 
