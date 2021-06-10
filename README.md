@@ -101,7 +101,7 @@ $ mascaras --db-user-name user01 -database db01 ./mask.sql database-src
 2021/06/10 16:53:25 [info] db instance status is available!
 2021/06/10 16:53:25 [info] wait db endpoints `mascaras-nRqMaE42fL` status available...
 2021/06/10 16:53:25 [info] db cluster endpoint status is available!
-2021/06/10 16:53:25 [info] start do sql `testdata/mask.sql`
+2021/06/10 16:53:25 [info] start do sql `./mask.sql`
 2021/06/10 16:53:25 [info] end do sql
 2021/06/10 16:53:25 [info] wait db cluster `mascaras-nRqMaE42fL` LatestRestorableTime past masked time `2021-06-10T07:53:25Z`...
 2021/06/10 16:53:25 [info] now db cluster LatestRestorableTime=2021-06-10T07:47:38Z
