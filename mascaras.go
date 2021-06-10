@@ -77,6 +77,16 @@ func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint
 }
 
 func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier string) error {
+	if maskSQLFile == "" {
+		maskSQLFile = app.cfg.SQLFile
+	}
+	if sourceDBClusterIdentifier == "" {
+		sourceDBClusterIdentifier = app.cfg.SourceDBClusterIdentifier
+	}
+	if maskSQLFile == "" && sourceDBClusterIdentifier == "" {
+		return errors.New("sql file and source db cluster is required")
+	}
+
 	maskSQL, err := readSQL(maskSQLFile)
 	if err != nil {
 		return err

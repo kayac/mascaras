@@ -10,10 +10,12 @@ import (
 )
 
 type Config struct {
-	TempCluster    TempDBClusterConfig `json:"temp_cluster,omitempty" yaml:"temp_cluster,omitempty"`
-	DBUserName     string              `json:"db_user_name,omitempty" yaml:"db_user_name,omitempty"`
-	DBUserPassword string              `json:"db_user_password,omitempty" yaml:"db_user_password,omitempty"`
-	Database       string              `json:"database,omitempty" yaml:"database,omitempty"`
+	TempCluster               TempDBClusterConfig `json:"temp_cluster,omitempty" yaml:"temp_cluster,omitempty"`
+	DBUserName                string              `json:"db_user_name,omitempty" yaml:"db_user_name,omitempty"`
+	DBUserPassword            string              `json:"db_user_password,omitempty" yaml:"db_user_password,omitempty"`
+	Database                  string              `json:"database,omitempty" yaml:"database,omitempty"`
+	SQLFile                   string              `json:"sql_file,omitempty" yaml:"sql_file,omitempty"`
+	SourceDBClusterIdentifier string              `json:"source_db_cluster_identifier,omitempty" yaml:"source_db_cluster_identifier,omitempty"`
 
 	EnableExportTask bool             `json:"enable_export_task,omitempty" yaml:"enable_export_task,omitempty"`
 	ExportTask       ExportTaskConfig `json:"export_task,omitempty" yaml:"export_task,omitempty"`
@@ -59,6 +61,8 @@ func (cfg *Config) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cfg.DBUserPassword, "db-user-password", cfg.DBUserPassword, "Cloned Aurora DB user password.")
 	f.StringVar(&cfg.Database, "database", cfg.Database, "Cloned Aurora DB sql target database.")
 	f.BoolVar(&cfg.EnableExportTask, "enable-export-task", cfg.EnableExportTask, "created snapshot export to s3")
+	f.StringVar(&cfg.SQLFile, "sql-file", cfg.SQLFile, "")
+	f.StringVar(&cfg.SourceDBClusterIdentifier, "src-db-cluster", cfg.SourceDBClusterIdentifier, "")
 	cfg.ExportTask.SetFlags(f)
 }
 
@@ -92,6 +96,8 @@ func (cfg *Config) MergeIn(o *Config) *Config {
 	cfg.DBUserPassword = coalesceString(o.DBUserPassword, cfg.DBUserPassword)
 	cfg.Database = coalesceString(o.Database, cfg.Database)
 	cfg.EnableExportTask = o.EnableExportTask || cfg.EnableExportTask
+	cfg.SQLFile = coalesceString(o.SQLFile, cfg.SQLFile)
+	cfg.SourceDBClusterIdentifier = coalesceString(o.SourceDBClusterIdentifier, cfg.SourceDBClusterIdentifier)
 	cfg.ExportTask.MergIn(&o.ExportTask)
 	return cfg
 }
