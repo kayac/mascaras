@@ -8,53 +8,89 @@ import (
 )
 
 type Config struct {
+	TempCluster    TempDBClusterConfig
+	DBUserName     string
+	DBUserPassword string
+	Database       string
+
+	EnableExportTask bool
+	ExportTask       ExportTaskConfig
+}
+
+type TempDBClusterConfig struct {
 	DBClusterIdentifierPrefix string
 	DBClusterIdentifier       string
 	DBInstanceClass           string
-	DBUserName                string
-	DBUserPassword            string
-	Database                  string
+	SecurityGroupIDs          string
 	PubliclyAccessible        bool
-	securityGroupIDs          string
+}
 
-	EnableExportTask     bool
-	ExportTaskIdentifier string
-	ExportTaskIamRoleArn string
-	ExportTaskKmsKeyId   string
-	ExportTaskS3Bucket   string
-	ExportTaskS3Prefix   string
-	exportTaskExportOnly string
+type ExportTaskConfig struct {
+	TaskIdentifier string
+	IAMRoleArn     string
+	KMSKeyId       string
+	S3Bucket       string
+	S3Prefix       string
+	ExportOnly     string
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		DBClusterIdentifierPrefix: "mascaras-",
-		DBInstanceClass:           "db.t3.small",
-		DBUserName:                "root",
-		PubliclyAccessible:        false,
-		EnableExportTask:          false,
+		TempCluster: TempDBClusterConfig{
+			DBClusterIdentifierPrefix: "mascaras-",
+			DBInstanceClass:           "db.t3.small",
+			PubliclyAccessible:        false,
+		},
+		DBUserName:       "root",
+		EnableExportTask: false,
 	}
 }
 
 func (cfg *Config) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&cfg.DBClusterIdentifierPrefix, "db-cluster-identifier-prefix", cfg.DBClusterIdentifierPrefix, "Cloned Aurora DB Cluster Identifier Prefix")
-	f.StringVar(&cfg.DBClusterIdentifier, "db-cluster-identifier", cfg.DBClusterIdentifier, "Cloned Aurora DB Cluster Identifier")
-	f.StringVar(&cfg.DBInstanceClass, "db-instance-class", cfg.DBInstanceClass, "Cloned Aurora DB Instance Class")
+	cfg.TempCluster.SetFlags(f)
 	f.StringVar(&cfg.DBUserName, "db-user-name", cfg.DBUserName, "Cloned Aurora DB user name")
 	f.StringVar(&cfg.DBUserPassword, "db-user-password", cfg.DBUserPassword, "Cloned Aurora DB user password.")
 	f.StringVar(&cfg.Database, "database", cfg.Database, "Cloned Aurora DB sql target database.")
-	f.BoolVar(&cfg.PubliclyAccessible, "publicly-accessible", cfg.PubliclyAccessible, "Cloned Aurora DB PubliclyAccessible.")
-	f.StringVar(&cfg.securityGroupIDs, "security-group-ids", cfg.securityGroupIDs, "Cloned Aurora DB Cluster Secturity Group IDs")
 	f.BoolVar(&cfg.EnableExportTask, "enable-export-task", cfg.EnableExportTask, "created snapshot export to s3")
-	f.StringVar(&cfg.ExportTaskIdentifier, "export-task-identifier", cfg.ExportTaskIdentifier, "export-task identifer.")
-	f.StringVar(&cfg.ExportTaskIamRoleArn, "export-task-iam-role-arn", cfg.ExportTaskIamRoleArn, "export-task execute IAM Role arn. required when enable export-task")
-	f.StringVar(&cfg.ExportTaskKmsKeyId, "export-task-kms-key-id", cfg.ExportTaskKmsKeyId, "export-task KMS Key ID. required when enable export-task")
-	f.StringVar(&cfg.ExportTaskS3Bucket, "export-task-s3-bucket", cfg.ExportTaskS3Bucket, "export-task destination s3 bucket name. required when enable export-task")
-	f.StringVar(&cfg.ExportTaskS3Prefix, "export-task-s3-prefix", cfg.ExportTaskS3Prefix, "export-task execute destination s3 key prefix")
-	f.StringVar(&cfg.exportTaskExportOnly, "export-task-export-only", cfg.exportTaskExportOnly, "export-task execute destination s3 key prefix")
+	cfg.ExportTask.SetFlags(f)
+}
+
+func (cfg *TempDBClusterConfig) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&cfg.DBClusterIdentifierPrefix, "db-cluster-identifier-prefix", cfg.DBClusterIdentifierPrefix, "Cloned Aurora DB Cluster Identifier Prefix")
+	f.StringVar(&cfg.DBClusterIdentifier, "db-cluster-identifier", cfg.DBClusterIdentifier, "Cloned Aurora DB Cluster Identifier")
+	f.StringVar(&cfg.DBInstanceClass, "db-instance-class", cfg.DBInstanceClass, "Cloned Aurora DB Instance Class")
+	f.BoolVar(&cfg.PubliclyAccessible, "publicly-accessible", cfg.PubliclyAccessible, "Cloned Aurora DB PubliclyAccessible.")
+	f.StringVar(&cfg.SecurityGroupIDs, "security-group-ids", cfg.SecurityGroupIDs, "Cloned Aurora DB Cluster Secturity Group IDs")
+}
+
+func (cfg *ExportTaskConfig) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&cfg.TaskIdentifier, "export-task-identifier", cfg.TaskIdentifier, "export-task identifer.")
+	f.StringVar(&cfg.IAMRoleArn, "export-task-iam-role-arn", cfg.IAMRoleArn, "export-task execute IAM Role arn. required when enable export-task")
+	f.StringVar(&cfg.KMSKeyId, "export-task-kms-key-id", cfg.KMSKeyId, "export-task KMS Key ID. required when enable export-task")
+	f.StringVar(&cfg.S3Bucket, "export-task-s3-bucket", cfg.S3Bucket, "export-task destination s3 bucket name. required when enable export-task")
+	f.StringVar(&cfg.S3Prefix, "export-task-s3-prefix", cfg.S3Prefix, "export-task execute destination s3 key prefix")
+	f.StringVar(&cfg.ExportOnly, "export-task-export-only", cfg.ExportOnly, "export-task execute destination s3 key prefix")
+
 }
 
 func (cfg *Config) Validate() error {
+	if err := cfg.TempCluster.Validate(); err != nil {
+		return nil
+	}
+	if cfg.DBUserName == "" {
+		log.Println("[warn] db-user-name is empty. maybe can not connect Cloaned Aurora")
+	}
+	if cfg.DBUserPassword == "" {
+		log.Println("[warn] db-user-password is empty. maybe can not connect Cloaned Aurora")
+	}
+
+	if !cfg.EnableExportTask {
+		return nil
+	}
+	return cfg.ExportTask.Validate()
+}
+
+func (cfg *TempDBClusterConfig) Validate() error {
 	if cfg.DBClusterIdentifier == "" {
 		if cfg.DBClusterIdentifierPrefix == "" {
 			return errors.New("either db-cluster-identifier or db-cluster-identifier-prefix is required")
@@ -67,39 +103,33 @@ func (cfg *Config) Validate() error {
 	if !strings.HasPrefix(cfg.DBInstanceClass, "db.") {
 		log.Println("[warn] db-instance-class does not have the `db.` prefix. Maybe you can't create a DB instance")
 	}
-	if cfg.DBUserName == "" {
-		log.Println("[warn] db-user-name is empty. maybe can not connect Cloaned Aurora")
-	}
-	if cfg.DBUserPassword == "" {
-		log.Println("[warn] db-user-password is empty. maybe can not connect Cloaned Aurora")
-	}
+	return nil
+}
 
-	if !cfg.EnableExportTask {
-		return nil
-	}
+func (cfg *ExportTaskConfig) Validate() error {
 	//In case Enable ExportTask
-	if cfg.ExportTaskIamRoleArn == "" {
+	if cfg.IAMRoleArn == "" {
 		return errors.New("export-task-iam-role-arn is required if ExportTask is enabled")
 	}
-	if cfg.ExportTaskKmsKeyId == "" {
+	if cfg.KMSKeyId == "" {
 		return errors.New("export-task-kms-key-id is required if ExportTask is enabled")
 	}
-	if cfg.ExportTaskS3Bucket == "" {
+	if cfg.S3Bucket == "" {
 		return errors.New("export-task-s3-bucket is required if ExportTask is enabled")
 	}
 	return nil
 }
 
-func (cfg *Config) SecurityGroupIDs() []string {
-	if cfg.securityGroupIDs == "" {
+func (cfg *TempDBClusterConfig) securityGroupIDs() []string {
+	if cfg.SecurityGroupIDs == "" {
 		return nil
 	}
-	return strings.Split(cfg.securityGroupIDs, ",")
+	return strings.Split(cfg.SecurityGroupIDs, ",")
 }
 
-func (cfg *Config) ExportTaskExportOnly() []string {
-	if cfg.exportTaskExportOnly == "" {
+func (cfg *ExportTaskConfig) exportOnly() []string {
+	if cfg.ExportOnly == "" {
 		return nil
 	}
-	return strings.Split(cfg.exportTaskExportOnly, ",")
+	return strings.Split(cfg.ExportOnly, ",")
 }

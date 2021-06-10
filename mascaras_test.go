@@ -33,11 +33,15 @@ func TestAppRun(t *testing.T) {
 		{
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
 			cfg: &Config{
-				DBInstanceClass:      "db.t3.small",
-				EnableExportTask:     true,
-				ExportTaskIamRoleArn: "arn:aws:iam::000000000000:role/export-test",
-				ExportTaskKmsKeyId:   "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
-				ExportTaskS3Bucket:   "mascras-test-bucket",
+				TempCluster: TempDBClusterConfig{
+					DBInstanceClass: "db.t3.small",
+				},
+				EnableExportTask: true,
+				ExportTask: ExportTaskConfig{
+					IAMRoleArn: "arn:aws:iam::000000000000:role/export-test",
+					KMSKeyId:   "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
+					S3Bucket:   "mascras-test-bucket",
+				},
 			},
 		},
 		{
@@ -59,12 +63,16 @@ func TestAppRun(t *testing.T) {
 		{
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
 			cfg: &Config{
-				DBInstanceClass:      "db.t3.small",
-				ExportTaskIdentifier: MockFailureExportTaskIdentifier,
-				EnableExportTask:     true,
-				ExportTaskIamRoleArn: "arn:aws:iam::000000000000:role/export-test",
-				ExportTaskKmsKeyId:   "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
-				ExportTaskS3Bucket:   "mascras-test-bucket",
+				TempCluster: TempDBClusterConfig{
+					DBInstanceClass: "db.t3.small",
+				},
+				EnableExportTask: true,
+				ExportTask: ExportTaskConfig{
+					TaskIdentifier: MockFailureExportTaskIdentifier,
+					IAMRoleArn:     "arn:aws:iam::000000000000:role/export-test",
+					KMSKeyId:       "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
+					S3Bucket:       "mascras-test-bucket",
+				},
 			},
 			errMsg: "failure StartExportTaskWithContext",
 		},
@@ -84,7 +92,7 @@ func TestAppRun(t *testing.T) {
 			} else {
 				app.cfg = c.cfg
 			}
-			app.cfg.DBClusterIdentifier = c.clusterIdentifier
+			app.cfg.TempCluster.DBClusterIdentifier = c.clusterIdentifier
 			require.NoError(t, app.cfg.Validate(), "config validate no error")
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()

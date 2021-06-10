@@ -81,20 +81,20 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	if err != nil {
 		return err
 	}
-	tempDBClusterIdentifier := app.cfg.DBClusterIdentifier
+	tempDBClusterIdentifier := app.cfg.TempCluster.DBClusterIdentifier
 	if tempDBClusterIdentifier == "" {
 		rstr, err := randstr(10)
 		if err != nil {
 			return err
 		}
-		tempDBClusterIdentifier = app.cfg.DBClusterIdentifierPrefix + rstr
+		tempDBClusterIdentifier = app.cfg.TempCluster.DBClusterIdentifierPrefix + rstr
 	}
 	restoreOutput, err := app.rdsSvc.RestoreDBClusterToPointInTimeWithContext(ctx, &rds.RestoreDBClusterToPointInTimeInput{
 		SourceDBClusterIdentifier: &sourceDBClusterIdentifier,
 		DBClusterIdentifier:       &tempDBClusterIdentifier,
 		RestoreType:               aws.String("copy-on-write"),
 		UseLatestRestorableTime:   aws.Bool(true),
-		VpcSecurityGroupIds:       aws.StringSlice(app.cfg.SecurityGroupIDs()),
+		VpcSecurityGroupIds:       aws.StringSlice(app.cfg.TempCluster.securityGroupIDs()),
 	})
 	if err != nil {
 		return fmt.Errorf("RestoreDBClusterToPointInTime:%w", err)
@@ -117,9 +117,9 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	createInstanceOutput, err := app.rdsSvc.CreateDBInstanceWithContext(ctx, &rds.CreateDBInstanceInput{
 		DBClusterIdentifier:  &tempDBClusterIdentifier,
 		DBInstanceIdentifier: &tempDBInstanceIdentifier,
-		DBInstanceClass:      &app.cfg.DBInstanceClass,
+		DBInstanceClass:      &app.cfg.TempCluster.DBInstanceClass,
 		Engine:               tempDBCluster.Engine,
-		PubliclyAccessible:   &app.cfg.PubliclyAccessible,
+		PubliclyAccessible:   &app.cfg.TempCluster.PubliclyAccessible,
 	})
 	if err != nil {
 		return err
@@ -164,18 +164,18 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	if err != nil {
 		return err
 	}
-	taskIdentifier := app.cfg.ExportTaskIdentifier
+	taskIdentifier := app.cfg.ExportTask.TaskIdentifier
 	if taskIdentifier == "" {
 		taskIdentifier = snapshotIdentifer + "-export-task"
 	}
 	log.Printf("[info] start export task, export task identifier=%s\n", taskIdentifier)
 	taskOutput, err := app.rdsSvc.StartExportTaskWithContext(ctx, &rds.StartExportTaskInput{
 		ExportTaskIdentifier: &taskIdentifier,
-		IamRoleArn:           &app.cfg.ExportTaskIamRoleArn,
-		KmsKeyId:             &app.cfg.ExportTaskKmsKeyId,
-		S3BucketName:         &app.cfg.ExportTaskS3Bucket,
-		S3Prefix:             aws.String(app.cfg.ExportTaskS3Prefix),
-		ExportOnly:           aws.StringSlice(app.cfg.ExportTaskExportOnly()),
+		IamRoleArn:           &app.cfg.ExportTask.IAMRoleArn,
+		KmsKeyId:             &app.cfg.ExportTask.KMSKeyId,
+		S3BucketName:         &app.cfg.ExportTask.S3Bucket,
+		S3Prefix:             aws.String(app.cfg.ExportTask.S3Prefix),
+		ExportOnly:           aws.StringSlice(app.cfg.ExportTask.exportOnly()),
 		SourceArn:            snapshot.DBClusterSnapshotArn,
 	})
 	if taskOutput.FailureCause != nil {
