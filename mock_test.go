@@ -100,10 +100,11 @@ func (svc *mockRDSService) StartExportTaskWithContext(
 	input *rds.StartExportTaskInput,
 	_ ...request.Option,
 ) (*rds.StartExportTaskOutput, error) {
-	if *input.ExportTaskIdentifier == MockFailureExportTaskIdentifier {
-		return nil, errors.New("failure StartExportTaskWithContext")
-	}
 	output := &rds.StartExportTaskOutput{}
+	if *input.ExportTaskIdentifier == MockFailureExportTaskIdentifier {
+		output.FailureCause = aws.String("task identifer is invalid")
+		return output, errors.New("failure StartExportTaskWithContext")
+	}
 	return output, nil
 }
 

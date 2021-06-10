@@ -156,6 +156,9 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	if !app.cfg.EnableExportTask {
 		return nil
 	}
+	if err := app.cleanup(cleanupInfo); err != nil {
+		return err
+	}
 	log.Println("[info] snapshot export to s3 enable")
 	snapshot, err := app.waitDBClusterSnapshot(ctx, snapshotIdentifer)
 	if err != nil {
@@ -166,7 +169,7 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 		taskIdentifier = snapshotIdentifer + "-export-task"
 	}
 	log.Printf("[info] start export task, export task identifier=%s\n", taskIdentifier)
-	_, err = app.rdsSvc.StartExportTaskWithContext(ctx, &rds.StartExportTaskInput{
+	taskOutput, err := app.rdsSvc.StartExportTaskWithContext(ctx, &rds.StartExportTaskInput{
 		ExportTaskIdentifier: &taskIdentifier,
 		IamRoleArn:           &app.cfg.ExportTaskIamRoleArn,
 		KmsKeyId:             &app.cfg.ExportTaskKmsKeyId,
@@ -175,9 +178,16 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 		ExportOnly:           aws.StringSlice(app.cfg.ExportTaskExportOnly()),
 		SourceArn:            snapshot.DBClusterSnapshotArn,
 	})
+	if taskOutput.FailureCause != nil {
+		log.Printf("[warn] failure cause: %s\n", *taskOutput.FailureCause)
+	}
+	if taskOutput.WarningMessage != nil {
+		log.Printf("[warn] %s\n", *taskOutput.WarningMessage)
+	}
 	if err != nil {
 		return err
 	}
+	log.Println("[info] all finish.")
 	return nil
 }
 
@@ -374,6 +384,7 @@ func (app *App) cleanup(info *cleanupInfo) error {
 			return err
 		}
 		log.Printf("[info] delete temp db instance:%s\n", *output.DBInstance.DBInstanceArn)
+		info.tempDBInstanceIdentifier = nil
 	}
 
 	if info.tempDBClusterIdentifier != nil {
@@ -385,6 +396,7 @@ func (app *App) cleanup(info *cleanupInfo) error {
 			return err
 		}
 		log.Printf("[info] delete temp db cluster:%s\n", *output.DBCluster.DBClusterArn)
+		info.tempDBClusterIdentifier = nil
 	}
 	log.Println("[info] finish cleanup")
 	return nil
