@@ -344,7 +344,7 @@ func (app *App) waitDBClusterSnapshot(ctx context.Context, dbClusterSnapshotIden
 		}
 		if strings.ToLower(*output.DBClusterSnapshots[0].Status) == "available" {
 			log.Printf(
-				"[info] db cluster status is %s! progress=%d%%\n",
+				"[info] db cluster snapshot status is %s! progress=%d%%\n",
 				*output.DBClusterSnapshots[0].Status,
 				*output.DBClusterSnapshots[0].PercentProgress,
 			)
@@ -353,7 +353,7 @@ func (app *App) waitDBClusterSnapshot(ctx context.Context, dbClusterSnapshotIden
 			return true
 		}
 		log.Printf(
-			"[info] db cluster status is %s... progress=%d%%\n",
+			"[info] db cluster status snapshot is %s... progress=%d%%\n",
 			*output.DBClusterSnapshots[0].Status,
 			*output.DBClusterSnapshots[0].PercentProgress,
 		)

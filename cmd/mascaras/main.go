@@ -49,7 +49,7 @@ func main() {
 	didumean.Parse()
 
 	if showVersion {
-		fmt.Printf("mascaras version=%s revision=%s\n", Version, Revision)
+		fmt.Printf("mascaras version=v%s revision=%s\n", Version, Revision)
 		return
 	}
 	if showHelp {
