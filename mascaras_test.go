@@ -3,35 +3,36 @@ package mascaras
 import (
 	"bytes"
 	"context"
+	"io"
 	"log"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAppRun(t *testing.T) {
-	expectedSQL, err := readSQL("testdata/mask.sql")
+	expectedSQLbase, err := readSQL("testdata/mask.sql")
 	require.NoError(t, err)
-	newExecuter := func(_ *Config, _ *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error) {
-		e := &mockExecuter{
-			host:        *dbClusterEndpoint.Endpoint,
-			expectedSQL: expectedSQL,
-		}
-		return e, nil
-	}
 	cases := []struct {
+		casetag           string
 		cfg               *Config
 		clusterIdentifier string
 		errMsg            string
+		expectedSQL       string
+		noMask            bool
+		stdin             string
 	}{
 		{
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
+			expectedSQL:       expectedSQLbase,
 		},
 		{
+			casetag:           "export task success",
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
+			expectedSQL:       expectedSQLbase,
 			cfg: &Config{
 				TempCluster: TempDBClusterConfig{
 					DBInstanceClass: "db.t3.small",
@@ -59,9 +60,12 @@ func TestAppRun(t *testing.T) {
 		{
 			clusterIdentifier: MockFailureCreateSnapshotDBClusterIdentifier,
 			errMsg:            "failure CreateDBClusterSnapshotWithContext",
+			expectedSQL:       expectedSQLbase,
 		},
 		{
+			casetag:           "export task failed",
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
+			expectedSQL:       expectedSQLbase,
 			cfg: &Config{
 				TempCluster: TempDBClusterConfig{
 					DBInstanceClass: "db.t3.small",
@@ -76,16 +80,40 @@ func TestAppRun(t *testing.T) {
 			},
 			errMsg: "failure StartExportTaskWithContext",
 		},
+		{
+			casetag:           "no mask",
+			clusterIdentifier: MockSuccessDBClusterIdentifier,
+			expectedSQL:       "-- nothing to do\n",
+			noMask:            true,
+		},
+		{
+			casetag:           "intaractive",
+			clusterIdentifier: MockSuccessDBClusterIdentifier,
+			expectedSQL:       "-- nothing to do\nSELECT * FROM users LIMIT 5;",
+			noMask:            true,
+			cfg: &Config{
+				TempCluster: TempDBClusterConfig{
+					DBInstanceClass: "db.t3.small",
+				},
+				Interactive: true,
+			},
+			stdin: "SELECT * FROM users LIMIT 5;\nexit\n",
+		},
 	}
 	for _, c := range cases {
-		t.Run(c.clusterIdentifier, func(t *testing.T) {
+		t.Run(c.casetag+c.clusterIdentifier, func(t *testing.T) {
 			cleanup := setLogOutput(t)
 			defer cleanup()
 			svc := &mockRDSService{}
+			e := &mockExecuter{}
 			app := &App{
 				rdsSvc:       svc,
 				baseInterval: time.Millisecond,
-				newExecuter:  newExecuter,
+				newExecuter: func(_ *Config, host string, _ int) (executer, error) {
+					e.host = host
+					return e, nil
+				},
+				stdin: io.NopCloser(strings.NewReader(c.stdin)),
 			}
 			if c.cfg == nil {
 				app.cfg = DefaultConfig()
@@ -93,7 +121,9 @@ func TestAppRun(t *testing.T) {
 				app.cfg = c.cfg
 			}
 			app.cfg.TempCluster.DBClusterIdentifier = c.clusterIdentifier
-			app.cfg.SQLFile = "testdata/mask.sql"
+			if !c.noMask {
+				app.cfg.SQLFile = "testdata/mask.sql"
+			}
 			require.NoError(t, app.cfg.Validate(), "config validate no error")
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
@@ -103,6 +133,7 @@ func TestAppRun(t *testing.T) {
 			} else {
 				require.EqualError(t, err, c.errMsg, "run expected error")
 			}
+			require.EqualValues(t, c.expectedSQL, e.executeSQL.String(), "sql check")
 			if svc.isCreateCluster {
 				require.True(t, svc.isDeleteCluster)
 			}

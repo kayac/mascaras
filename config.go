@@ -25,6 +25,7 @@ type Config struct {
 	Database                  string              `json:"database,omitempty" yaml:"database,omitempty"`
 	SQLFile                   string              `json:"sql_file,omitempty" yaml:"sql_file,omitempty"`
 	SourceDBClusterIdentifier string              `json:"source_db_cluster_identifier,omitempty" yaml:"source_db_cluster_identifier,omitempty"`
+	Interactive               bool                `json:"interactive,omitempty" yaml:"interactive,omitempty"`
 
 	EnableExportTask bool             `json:"enable_export_task,omitempty" yaml:"enable_export_task,omitempty"`
 	ExportTask       ExportTaskConfig `json:"export_task,omitempty" yaml:"export_task,omitempty"`
@@ -81,6 +82,7 @@ func (cfg *Config) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&cfg.EnableExportTask, "enable-export-task", cfg.EnableExportTask, "created snapshot export to s3")
 	f.StringVar(&cfg.SQLFile, "sql-file", cfg.SQLFile, "")
 	f.StringVar(&cfg.SourceDBClusterIdentifier, "src-db-cluster", cfg.SourceDBClusterIdentifier, "")
+	f.BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "after mask sql,　Launch an interactive prompt after executing SQL")
 	cfg.ExportTask.SetFlags(f)
 }
 
@@ -116,6 +118,7 @@ func (cfg *Config) MergeIn(o *Config) *Config {
 	cfg.EnableExportTask = o.EnableExportTask || cfg.EnableExportTask
 	cfg.SQLFile = coalesceString(o.SQLFile, cfg.SQLFile)
 	cfg.SourceDBClusterIdentifier = coalesceString(o.SourceDBClusterIdentifier, cfg.SourceDBClusterIdentifier)
+	cfg.Interactive = o.Interactive || cfg.Interactive
 	cfg.ExportTask.MergIn(&o.ExportTask)
 	return cfg
 }

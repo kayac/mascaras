@@ -66,6 +66,8 @@ func main() {
 	if debug {
 		filter.MinLevel = logutils.LogLevel("debug")
 	}
+	log.SetOutput(filter)
+
 	if configFile != "" {
 		o, err := mascaras.LoadConfig(configFile)
 		if err != nil {
@@ -73,7 +75,6 @@ func main() {
 		}
 		cfg = o.MergeIn(cfg)
 	}
-	log.SetOutput(filter)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM|syscall.SIGHUP|syscall.SIGINT)
 	defer stop()

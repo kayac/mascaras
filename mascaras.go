@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rds"
 	"github.com/aws/aws-sdk-go/service/rds/rdsiface"
+	"github.com/chzyer/readline"
 	"github.com/lestrrat-go/backoff/v2"
 	"github.com/mashiike/mysqlbatch"
 )
@@ -21,7 +23,9 @@ type App struct {
 	rdsSvc       rdsiface.RDSAPI
 	cfg          *Config
 	baseInterval time.Duration
-	newExecuter  func(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error)
+	newExecuter  func(cfg *Config, host string, port int) (executer, error)
+	stdin        io.ReadCloser
+	stderr       io.Writer
 }
 
 func New(cfg *Config, cfgs ...*aws.Config) (*App, error) {
@@ -39,6 +43,8 @@ func New(cfg *Config, cfgs ...*aws.Config) (*App, error) {
 		cfg:          cfg,
 		newExecuter:  defaultNewExecuter,
 		baseInterval: time.Minute,
+		stdin:        os.Stdin,
+		stderr:       os.Stderr,
 	}, err
 }
 
@@ -68,12 +74,12 @@ type executer interface {
 	Close() error
 }
 
-func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error) {
+func defaultNewExecuter(cfg *Config, host string, port int) (executer, error) {
 	mysqlConfig := &mysqlbatch.Config{
 		User:     cfg.DBUserName,
-		Host:     *dbClusterEndpoint.Endpoint,
+		Host:     host,
 		Password: cfg.DBUserPassword,
-		Port:     int(*dbCluster.Port),
+		Port:     port,
 		Database: cfg.Database,
 	}
 	executer, err := mysqlbatch.New(mysqlConfig)
@@ -92,7 +98,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	if sourceDBClusterIdentifier == "" {
 		return errors.New("source db cluster is required")
 	}
-	maskSQL := "-- nothing to do"
+	maskSQL := "-- nothing to do\n"
 	if maskSQLFile != "" {
 		var err error
 		maskSQL, err = readSQL(maskSQLFile)
@@ -155,7 +161,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		return err
 	}
 
-	maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, tempDBCluster, tempDBClusterEndpoint)
+	maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, *tempDBCluster.DBClusterIdentifier, *tempDBClusterEndpoint.Endpoint, int(*tempDBCluster.Port))
 	if err != nil {
 		return err
 	}
@@ -207,8 +213,9 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	log.Println("[info] all finish.")
 	return nil
 }
-func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (time.Time, error) {
-	executer, err := app.newExecuter(app.cfg, dbCluster, dbClusterEndpoint)
+
+func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, hostID, host string, port int) (time.Time, error) {
+	executer, err := app.newExecuter(app.cfg, host, port)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -221,7 +228,94 @@ func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, dbCl
 		return executer.LastExecuteTime(), err
 	}
 	log.Println("[info] end do sql")
+	if app.cfg.Interactive {
+		log.Println("[info] start interactive prompt")
+		if err := app.executePrompt(ctx, executer, hostID); err != nil {
+			return executer.LastExecuteTime(), err
+		}
+		log.Println("[info] end interactive prompt")
+	}
 	return executer.LastExecuteTime(), nil
+}
+
+var completer = readline.NewPrefixCompleter(
+	readline.PcItem("help",
+		readline.PcItem("abort"),
+		readline.PcItem("exit"),
+	),
+	readline.PcItem("abort"),
+	readline.PcItem("exit"),
+)
+
+func (app *App) executePrompt(ctx context.Context, executer executer, dbClusterIdentifier string) error {
+	l, err := readline.NewEx(&readline.Config{
+		Prompt:            fmt.Sprintf("aurora[%s]>", dbClusterIdentifier),
+		HistoryFile:       "/tmp/readline.tmp",
+		AutoComplete:      completer,
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		Stdin:             app.stdin,
+		Stderr:            app.stderr,
+		HistorySearchFold: true,
+	})
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+	executer.SetTableSelectHook(func(_, table string) {
+		fmt.Fprintln(l.Stderr(), "\n"+table)
+	})
+	executer.SetExecuteHook(func(_ string, rowsAffected int64, lastInsertId int64) {
+		fmt.Fprintf(l.Stderr(), "\nQuery OK, %drowsAffected\n Last insert id = %d\n", rowsAffected, lastInsertId)
+	})
+	var buf strings.Builder
+	log.Println("[info] ")
+	log.Println("[info] Use the `exit` or` abort` command to escape from Prompt.")
+	log.Println("[info] Enter `help` command for more information.")
+	log.Println("[info] Note: `^C` behaves the same as the `abort` command.")
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		line, err := l.Readline()
+		if err == readline.ErrInterrupt {
+			if len(line) == 0 {
+				fmt.Fprintln(l.Stderr(), err)
+				return nil
+			} else {
+				continue
+			}
+		} else if err == io.EOF {
+			return nil
+		}
+		line = strings.TrimSpace(line)
+		l.SetVimMode(false)
+		switch {
+		case strings.HasPrefix(line, "help"):
+			fmt.Fprintln(l.Stderr(), "commands:")
+			fmt.Fprintln(l.Stderr(), "\tabort:\tExit prompt as abnormal. Does not create a snapshot")
+			fmt.Fprintln(l.Stderr(), "\texit:\tExit prompt as successful, continue creating Snapshot")
+			fmt.Fprintln(l.Stderr(), "")
+		case line == "abort":
+			fmt.Fprintln(l.Stderr(), "abort prompt.")
+			return errors.New("prompt abort")
+		case line == "exit":
+			fmt.Fprintln(l.Stderr(), "exit prompt.")
+			return nil
+		default:
+			buf.WriteString(line)
+			if strings.ContainsRune(line, ';') {
+				func() {
+					if err := executer.ExecuteContext(ctx, strings.NewReader(buf.String())); err != nil {
+						fmt.Fprintln(l.Stderr(), err)
+					}
+					buf.Reset()
+				}()
+			}
+		}
+	}
 }
 
 func (app *App) wait(ctx context.Context, estimateTime time.Duration, action func() bool) error {
