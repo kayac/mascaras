@@ -134,24 +134,25 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		}
 	}()
 	log.Printf("[info] cloned db cluster: %s\n", *restoreOutput.DBCluster.DBClusterArn)
-	tempDBCluster, err := app.waitDBClusterAvailable(ctx, tempDBClusterIdentifier)
-	if err != nil {
-		return err
-	}
 	tempDBInstanceIdentifier := tempDBClusterIdentifier + "-instance"
 
 	createInstanceOutput, err := app.rdsSvc.CreateDBInstanceWithContext(ctx, &rds.CreateDBInstanceInput{
 		DBClusterIdentifier:  &tempDBClusterIdentifier,
 		DBInstanceIdentifier: &tempDBInstanceIdentifier,
 		DBInstanceClass:      &app.cfg.TempCluster.DBInstanceClass,
-		Engine:               tempDBCluster.Engine,
+		Engine:               aws.String("aurora"),
 		PubliclyAccessible:   &app.cfg.TempCluster.PubliclyAccessible,
 	})
 	if err != nil {
 		return err
 	}
-	cleanupInfo.tempDBInstanceIdentifier = &tempDBInstanceIdentifier
 	log.Printf("[info] create db instance: %s\n", *createInstanceOutput.DBInstance.DBInstanceArn)
+	cleanupInfo.tempDBInstanceIdentifier = &tempDBInstanceIdentifier
+
+	tempDBCluster, err := app.waitDBClusterAvailable(ctx, tempDBClusterIdentifier)
+	if err != nil {
+		return err
+	}
 	_, err = app.waitDBInstanceAvailable(ctx, tempDBInstanceIdentifier)
 	if err != nil {
 		return err
