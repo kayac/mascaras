@@ -243,8 +243,8 @@ func (e *mockExecuter) LastExecuteTime() time.Time {
 	return e.lastExecuteTime
 }
 
-func (e *mockExecuter) SetTableSelectHook(func(query, table string)) {}
-func (e *mockExecuter) SetExecuteHook(func(query, table string))     {}
+func (e *mockExecuter) SetTableSelectHook(func(string, string))   {}
+func (e *mockExecuter) SetExecuteHook(func(string, int64, int64)) {}
 
 func (e *mockExecuter) Close() error {
 	return nil
