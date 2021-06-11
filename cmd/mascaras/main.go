@@ -44,7 +44,7 @@ func main() {
 		}
 	})
 	flag.Usage = func() {
-		fmt.Fprintln(flag.CommandLine.Output(), "Usage: mascaras [options] <mask sql file> <source db cluster identifier>")
+		fmt.Fprintln(flag.CommandLine.Output(), "Usage: mascaras [options] <source db cluster identifier>")
 		fmt.Fprintf(flag.CommandLine.Output(), "\t can use %s env prefix\n", envPrefix)
 		flag.PrintDefaults()
 	}
@@ -58,10 +58,9 @@ func main() {
 		flag.Usage()
 		return
 	}
-	var sqlFile, sourceDBClusterIdentifier string
-	if flag.NArg() == 2 {
-		sqlFile = flag.Arg(0)
-		sourceDBClusterIdentifier = flag.Arg(1)
+	var sourceDBClusterIdentifier string
+	if flag.NArg() > 0 {
+		sourceDBClusterIdentifier = flag.Arg(0)
 	}
 
 	if debug {
@@ -83,7 +82,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("[error] %v\n", err)
 	}
-	err = app.Run(ctx, sqlFile, sourceDBClusterIdentifier)
+	err = app.Run(ctx, sourceDBClusterIdentifier)
 	switch err {
 	case nil:
 		log.Println("[info] success.")

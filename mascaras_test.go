@@ -93,10 +93,11 @@ func TestAppRun(t *testing.T) {
 				app.cfg = c.cfg
 			}
 			app.cfg.TempCluster.DBClusterIdentifier = c.clusterIdentifier
+			app.cfg.SQLFile = "testdata/mask.sql"
 			require.NoError(t, app.cfg.Validate(), "config validate no error")
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			err := app.Run(ctx, "testdata/mask.sql", "mascaras-test")
+			err := app.Run(ctx, "mascaras-test")
 			if c.errMsg == "" {
 				require.NoError(t, err, "run no error")
 			} else {
