@@ -221,7 +221,6 @@ func (svc *mockRDSService) DeleteDBInstance(
 
 type mockExecuter struct {
 	host            string
-	expectedSQL     string
 	executeSQL      strings.Builder
 	lastExecuteTime time.Time
 }
