@@ -220,8 +220,9 @@ func (svc *mockRDSService) DeleteDBInstance(
 }
 
 type mockExecuter struct {
-	host        string
-	expectedSQL string
+	host            string
+	expectedSQL     string
+	lastExecuteTime time.Time
 }
 
 func (e *mockExecuter) ExecuteContext(_ context.Context, reader io.Reader) error {
@@ -235,5 +236,13 @@ func (e *mockExecuter) ExecuteContext(_ context.Context, reader io.Reader) error
 	if string(bs) != e.expectedSQL {
 		return errors.New("unexpected SQL")
 	}
+	e.lastExecuteTime = time.Now().UTC()
+	return nil
+}
+func (e *mockExecuter) LastExecuteTime() time.Time {
+	return e.lastExecuteTime
+}
+
+func (e *mockExecuter) Close() error {
 	return nil
 }

@@ -21,7 +21,7 @@ type App struct {
 	rdsSvc       rdsiface.RDSAPI
 	cfg          *Config
 	baseInterval time.Duration
-	newExecuter  func(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) executer
+	newExecuter  func(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error)
 }
 
 func New(cfg *Config, cfgs ...*aws.Config) (*App, error) {
@@ -62,9 +62,11 @@ type cleanupInfo struct {
 
 type executer interface {
 	ExecuteContext(context.Context, io.Reader) error
+	LastExecuteTime() time.Time
+	Close() error
 }
 
-func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) executer {
+func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error) {
 	mysqlConfig := &mysqlbatch.Config{
 		User:     cfg.DBUserName,
 		Host:     *dbClusterEndpoint.Endpoint,
@@ -72,7 +74,12 @@ func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint
 		Port:     int(*dbCluster.Port),
 		Database: cfg.Database,
 	}
-	return mysqlbatch.New(mysqlConfig)
+	executer, err := mysqlbatch.New(mysqlConfig)
+	if err != nil {
+		return nil, err
+	}
+	return executer, nil
+
 }
 
 func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier string) error {
@@ -145,13 +152,10 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 		return err
 	}
 
-	executer := app.newExecuter(app.cfg, tempDBCluster, tempDBClusterEndpoint)
-	log.Printf("[info] start do sql `%s`\n", maskSQLFile)
-	if err := executer.ExecuteContext(ctx, strings.NewReader(maskSQL)); err != nil {
+	maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, tempDBCluster, tempDBClusterEndpoint)
+	if err != nil {
 		return err
 	}
-	log.Println("[info] end do sql")
-	maskedTime := time.Now().UTC()
 	if err := app.waitDBClusterLatestRestorableTime(ctx, tempDBClusterIdentifier, maskedTime); err != nil {
 		return err
 	}
@@ -199,6 +203,18 @@ func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier 
 	}
 	log.Println("[info] all finish.")
 	return nil
+}
+func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, dbCluster *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (time.Time, error) {
+	executer, err := app.newExecuter(app.cfg, dbCluster, dbClusterEndpoint)
+	if err != nil {
+		return time.Time{}, err
+	}
+	log.Printf("[info] start do sql `%s`\n", maskSQLLoc)
+	if err := executer.ExecuteContext(ctx, strings.NewReader(maskSQL)); err != nil {
+		return executer.LastExecuteTime(), err
+	}
+	log.Println("[info] end do sql")
+	return executer.LastExecuteTime(), nil
 }
 
 func (app *App) wait(ctx context.Context, estimateTime time.Duration, action func() bool) error {

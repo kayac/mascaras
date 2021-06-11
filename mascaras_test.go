@@ -15,12 +15,12 @@ import (
 func TestAppRun(t *testing.T) {
 	expectedSQL, err := readSQL("testdata/mask.sql")
 	require.NoError(t, err)
-	newExecuter := func(_ *Config, _ *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) executer {
+	newExecuter := func(_ *Config, _ *rds.DBCluster, dbClusterEndpoint *rds.DBClusterEndpoint) (executer, error) {
 		e := &mockExecuter{
 			host:        *dbClusterEndpoint.Endpoint,
 			expectedSQL: expectedSQL,
 		}
-		return e
+		return e, nil
 	}
 	cases := []struct {
 		cfg               *Config
