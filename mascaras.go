@@ -113,7 +113,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		if err != nil {
 			return err
 		}
-		tempDBClusterIdentifier = app.cfg.TempCluster.DBClusterIdentifierPrefix + rstr
+		tempDBClusterIdentifier = app.cfg.TempCluster.DBClusterIdentifierPrefix + "-" + rstr
 	}
 	restoreOutput, err := app.rdsSvc.RestoreDBClusterToPointInTimeWithContext(ctx, &rds.RestoreDBClusterToPointInTimeInput{
 		SourceDBClusterIdentifier: &sourceDBClusterIdentifier,
@@ -140,7 +140,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		DBClusterIdentifier:  &tempDBClusterIdentifier,
 		DBInstanceIdentifier: &tempDBInstanceIdentifier,
 		DBInstanceClass:      &app.cfg.TempCluster.DBInstanceClass,
-		Engine:               aws.String("aurora"),
+		Engine:               restoreOutput.DBCluster.Engine,
 		PubliclyAccessible:   &app.cfg.TempCluster.PubliclyAccessible,
 	})
 	if err != nil {
@@ -170,13 +170,15 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		return err
 	}
 	snapshotIdentifer := tempDBClusterIdentifier + "-snapshot"
-	_, err = app.rdsSvc.CreateDBClusterSnapshotWithContext(ctx, &rds.CreateDBClusterSnapshotInput{
+	log.Println("[info] create snapshot:", snapshotIdentifer)
+	snapshotOutput, err := app.rdsSvc.CreateDBClusterSnapshotWithContext(ctx, &rds.CreateDBClusterSnapshotInput{
 		DBClusterIdentifier:         &tempDBClusterIdentifier,
 		DBClusterSnapshotIdentifier: &snapshotIdentifer,
 	})
 	if err != nil {
 		return err
 	}
+	log.Println("[info] success arn =", *snapshotOutput.DBClusterSnapshot.DBClusterSnapshotArn)
 	if !app.cfg.EnableExportTask {
 		return nil
 	}
@@ -230,11 +232,11 @@ func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, host
 	}
 	log.Println("[info] end do sql")
 	if app.cfg.Interactive {
-		log.Println("[info] start interactive prompt")
+		log.Println("[info] start interactive")
 		if err := app.executePrompt(ctx, executer, hostID); err != nil {
 			return executer.LastExecuteTime(), err
 		}
-		log.Println("[info] end interactive prompt")
+		log.Println("[info] end interactive")
 	}
 	return executer.LastExecuteTime(), nil
 }
@@ -267,7 +269,7 @@ func (app *App) executePrompt(ctx context.Context, executer executer, dbClusterI
 		fmt.Fprintln(l.Stderr(), "\n"+table)
 	})
 	executer.SetExecuteHook(func(_ string, rowsAffected int64, lastInsertId int64) {
-		fmt.Fprintf(l.Stderr(), "\nQuery OK, %drowsAffected\n Last insert id = %d\n", rowsAffected, lastInsertId)
+		fmt.Fprintf(l.Stderr(), "\nQuery OK, %d rowsAffected\nLast insert id = %d\n", rowsAffected, lastInsertId)
 	})
 	var buf strings.Builder
 	log.Println("[info] ")

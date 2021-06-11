@@ -31,7 +31,7 @@ const envPrefix = "MASCARAS_"
 func main() {
 	var debug, showHelp, showVersion bool
 	var configFile string
-	cfg := mascaras.DefaultConfig()
+	cfg := &mascaras.Config{}
 	cfg.SetFlags(flag.CommandLine)
 	flag.BoolVar(&debug, "debug", false, "enable debug log")
 	flag.BoolVar(&showVersion, "version", false, "show version")
@@ -73,6 +73,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("[error] load config %s", err.Error())
 		}
+		cfg = o.MergeIn(cfg)
+	} else {
+		o := mascaras.DefaultConfig()
 		cfg = o.MergeIn(cfg)
 	}
 
