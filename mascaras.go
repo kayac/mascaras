@@ -63,6 +63,8 @@ type cleanupInfo struct {
 type executer interface {
 	ExecuteContext(context.Context, io.Reader) error
 	LastExecuteTime() time.Time
+	SetTableSelectHook(func(query, table string))
+	SetExecuteHook(func(query string, rowsAffected int64, lastInsertId int64))
 	Close() error
 }
 
@@ -79,7 +81,6 @@ func defaultNewExecuter(cfg *Config, dbCluster *rds.DBCluster, dbClusterEndpoint
 		return nil, err
 	}
 	return executer, nil
-
 }
 
 func (app *App) Run(ctx context.Context, maskSQLFile, sourceDBClusterIdentifier string) error {
@@ -209,6 +210,10 @@ func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, dbCl
 	if err != nil {
 		return time.Time{}, err
 	}
+	defer executer.Close()
+	executer.SetTableSelectHook(func(query, table string) {
+		log.Printf("[info] Query: %s\n%s\n", query, table)
+	})
 	log.Printf("[info] start do sql `%s`\n", maskSQLLoc)
 	if err := executer.ExecuteContext(ctx, strings.NewReader(maskSQL)); err != nil {
 		return executer.LastExecuteTime(), err
