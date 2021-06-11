@@ -276,6 +276,7 @@ func (app *App) executePrompt(ctx context.Context, executer executer, dbClusterI
 	log.Println("[info] Use the `exit` or` abort` command to escape from Prompt.")
 	log.Println("[info] Enter `help` command for more information.")
 	log.Println("[info] Note: `^C` behaves the same as the `abort` command.")
+	l.SetVimMode(false)
 	for {
 		select {
 		case <-ctx.Done():
@@ -294,7 +295,6 @@ func (app *App) executePrompt(ctx context.Context, executer executer, dbClusterI
 			return nil
 		}
 		line = strings.TrimSpace(line)
-		l.SetVimMode(false)
 		switch {
 		case strings.HasPrefix(line, "help"):
 			fmt.Fprintln(l.Stderr(), "commands:")
