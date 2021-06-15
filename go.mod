@@ -3,6 +3,7 @@ module github.com/kayac/mascaras
 go 1.16
 
 require (
+	github.com/Songmu/flextime v0.1.0
 	github.com/aws/aws-sdk-go v1.38.57
 	github.com/chzyer/logex v1.1.10 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
