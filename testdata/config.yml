@@ -11,3 +11,4 @@ database: dummy
 enable_export_task: false
 export_task:
   task_identifier: test-out
+  s3_prefix: {{ now.Format "/2006/01/02" }}

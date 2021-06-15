@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Songmu/flextime"
 	"github.com/stretchr/testify/require"
 )
 
@@ -155,6 +156,7 @@ func setLogOutput(t *testing.T) func() {
 }
 
 func TestConfigMergeIn(t *testing.T) {
+	flextime.Set(time.Date(2021, 06, 01, 0, 0, 0, 0, time.UTC))
 	os.Setenv("PASSWORD", "super_password")
 	o, err := LoadConfig("testdata/config.yml")
 	require.NoError(t, err)
@@ -188,6 +190,7 @@ func TestConfigMergeIn(t *testing.T) {
 			IAMRoleArn:     "arn:aws:iam::000000000000:role/export-test",
 			KMSKeyId:       "arn:aws:kms:ap-northeast-1:000000000000:key/00000000-0000-0000-0000-000000000000",
 			S3Bucket:       "mascras-test-bucket",
+			S3Prefix:       "/2021/06/01",
 		},
 	}
 	require.EqualValues(t, expected, cfg)

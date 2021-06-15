@@ -10,7 +10,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"text/template"
 
+	"github.com/Songmu/flextime"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -71,6 +73,9 @@ func LoadConfig(loc string) (*Config, error) {
 		return nil, err
 	}
 	cfg := DefaultConfig()
+	gconf.Funcs(template.FuncMap{
+		"now": flextime.Now,
+	})
 	return cfg, gconf.LoadWithEnvBytes(&cfg, bs)
 }
 
