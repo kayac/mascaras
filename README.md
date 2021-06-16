@@ -2,6 +2,26 @@
 
 this is backup tool for Aurora MySQL.  
 mascaras creates Clone Aurora MySQL, execute the SQL, and then create a Snapshot.
+
+## Architecture
+
+1. Clone Source Aurora MySQL.
+2. Execute SQL on the cloned Aurora MySQL.
+3. Wait for LatestRestorableTime to pass the last SQL execution time.
+4. Take a snapshot of the cloned Aurora　MySQL.
+5. (Optional) Start S3 Export Task　of the created snapshot.
+
+## Installation
+
+### Binary packages
+
+[Releases](https://github.com/kayac/mascaras/releases)
+
+### Docker
+
+```console
+$ docker pull ghcr.io/kayac/mascaras:latest
+```
 ## Usage
 
 ```shell
@@ -157,8 +177,7 @@ $ mascaras -db-user-name user01 -database db01 -sql-file ./mask.sql database-src
 2021/06/10 17:00:56 [info] finish cleanup
 2021/06/10 17:01:01 [info] success
 ```
-
-## Extended usage (intaractive)
+## Usage: intaractive mode
 
 `-interactive` will launch a simple Prompt after running sql.
 For example, if you want to check the temporary mask data, you can use it as shown in the example below.
@@ -259,6 +278,56 @@ exit prompt.
 2021/06/11 15:00:19 [info] finish cleanup
 2021/06/11 15:00:19 [info] success.
 ```
+
+## Usage: ECS scheduled tasks with Fargate
+
+As a usecase, Consider using ECS scheduled tasks.
+
+example task definition
+```json
+{
+    "family": "mascaras",
+    "executionRoleArn": "<your execution role arn>",
+    "taskRoleArn": "<your task role arn",
+    "networkMode": "awsvpc",
+    "cpu": "256",
+    "memory": "512",
+    "containerDefinitions": [
+        {
+            "name": "mascaras",
+            "image": "ghcr.io/kayac/mascaras:latest",
+            "portMappings": [],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "MASCARAS_CONFIG",
+                    "value": "<your mascaras config s3 url>"
+                }
+            ],
+            "secrets": [
+                {
+                "name": "MASCARAS_DB_USER_NAME",
+                "valueFrom": "/MASCARAS_DB_USER_NAME"
+                },
+                {
+                "name": "MASCARAS_DB_USER_PASSWORD",
+                "valueFrom": "/MASCARAS_DB_USER_PASSWORD"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/docker/mascaras",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "mascaras"
+                }
+            }
+        }
+    ]
+}
+```
+
+
 
 # LICENCE
 

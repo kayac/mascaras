@@ -7,7 +7,9 @@ export GO111MODULE := on
 image:
 	docker build \
 		--tag ghcr.io/kayac/mascaras:$(GIT_VER) \
+		--tag ghcr.io/kayac/mascaras:latest \
 		.
 
 release-image: image
 	docker push ghcr.io/kayac/mascaras:$(GIT_VER)
+	docker push ghcr.io/kayac/mascaras:latest
