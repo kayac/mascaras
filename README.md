@@ -286,46 +286,44 @@ As a usecase, Consider using ECS scheduled tasks.
 example task definition
 ```json
 {
-    "taskDefinition": {
-        "family": "mascaras",
-        "executionRoleArn": "<your execution role arn>",
-        "taskRoleArn": "<your task role arn",
-        "networkMode": "awsvpc",
-        "cpu": "256",
-        "memory": "512",
-        "containerDefinitions": [
-            {
-                "name": "mascaras",
-                "image": "ghcr.io/kayac/mascaras:latest",
-                "portMappings": [],
-                "essential": true,
-                "environment": [
-                    {
-                        "name": "MASCARAS_CONFIG",
-                        "value": "<your mascaras config s3 url>"
-                    }
-                ],
-                "secrets": [
-                  {
-                    "name": "MASCARAS_DB_USER_NAME",
-                    "valueFrom": "/MASCARAS_DB_USER_NAME"
-                  },
-                  {
-                    "name": "MASCARAS_DB_USER_PASSWORD",
-                    "valueFrom": "/MASCARAS_DB_USER_PASSWORD"
-                  }
-                ],
-                "logConfiguration": {
-                    "logDriver": "awslogs",
-                    "options": {
-                        "awslogs-group": "/docker/mascaras",
-                        "awslogs-region": "ap-northeast-1",
-                        "awslogs-stream-prefix": "mascaras"
-                    }
+    "family": "mascaras",
+    "executionRoleArn": "<your execution role arn>",
+    "taskRoleArn": "<your task role arn",
+    "networkMode": "awsvpc",
+    "cpu": "256",
+    "memory": "512",
+    "containerDefinitions": [
+        {
+            "name": "mascaras",
+            "image": "ghcr.io/kayac/mascaras:latest",
+            "portMappings": [],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "MASCARAS_CONFIG",
+                    "value": "<your mascaras config s3 url>"
+                }
+            ],
+            "secrets": [
+                {
+                "name": "MASCARAS_DB_USER_NAME",
+                "valueFrom": "/MASCARAS_DB_USER_NAME"
+                },
+                {
+                "name": "MASCARAS_DB_USER_PASSWORD",
+                "valueFrom": "/MASCARAS_DB_USER_PASSWORD"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/docker/mascaras",
+                    "awslogs-region": "ap-northeast-1",
+                    "awslogs-stream-prefix": "mascaras"
                 }
             }
-        ]
-    }
+        }
+    ]
 }
 ```
 
