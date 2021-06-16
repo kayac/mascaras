@@ -6,7 +6,7 @@ mascaras creates Clone Aurora MySQL, execute the SQL, and then create a Snapshot
 ## Architecture
 
 1. Clone Source Aurora MySQL.
-2. Execute SQL on cloned Aurora MySQL.
+2. Execute SQL on the cloned Aurora MySQL.
 3. Wait for LatestRestorableTime to pass the last SQL execution time.
 4. Take a snapshot of the cloned Aurora　MySQL.
 5. (Optional) Start S3 Export Task　of the created snapshot.
