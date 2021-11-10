@@ -10,13 +10,20 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/hashicorp/logutils"
+	"github.com/fatih/color"
+	"github.com/fujiwara/logutils"
 	"github.com/kayac/mascaras"
 	"github.com/mashiike/didumean"
 )
 
 var filter = &logutils.LevelFilter{
-	Levels:   []logutils.LogLevel{"debug", "info", "warn", "error"},
+	Levels: []logutils.LogLevel{"debug", "info", "warn", "error"},
+	ModifierFuncs: []logutils.ModifierFunc{
+		nil,
+		nil,
+		logutils.Color(color.FgYellow),
+		logutils.Color(color.FgRed, color.BgBlack),
+	},
 	MinLevel: logutils.LogLevel("info"),
 	Writer:   os.Stderr,
 }

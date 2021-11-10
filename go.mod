@@ -6,7 +6,8 @@ require (
 	github.com/Songmu/flextime v0.1.0
 	github.com/aws/aws-sdk-go v1.38.57
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
-	github.com/hashicorp/logutils v1.0.0
+	github.com/fatih/color v1.13.0
+	github.com/fujiwara/logutils v1.1.0
 	github.com/kayac/go-config v0.6.0
 	github.com/lestrrat-go/backoff/v2 v2.0.8
 	github.com/lib/pq v1.10.4
@@ -24,12 +25,14 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/lestrrat-go/option v1.0.0 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
+	golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
