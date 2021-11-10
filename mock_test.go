@@ -54,6 +54,7 @@ func (svc *mockRDSService) RestoreDBClusterToPointInTimeWithContext(
 		DBCluster: &rds.DBCluster{
 			DBClusterArn: aws.String(dbClusterARNPrefix + *input.DBClusterIdentifier),
 			Port:         aws.Int64(3306),
+			Engine:       aws.String("aurora-test"),
 		},
 	}
 	return output, nil

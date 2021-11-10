@@ -25,6 +25,7 @@ type Config struct {
 	DBUserName                string              `json:"db_user_name,omitempty" yaml:"db_user_name,omitempty"`
 	DBUserPassword            string              `json:"db_user_password,omitempty" yaml:"db_user_password,omitempty"`
 	Database                  string              `json:"database,omitempty" yaml:"database,omitempty"`
+	SSLMode                   string              `json:"ssl_mode,omitempty" yaml:"ssl_mode,omitempty"`
 	SQLFile                   string              `json:"sql_file,omitempty" yaml:"sql_file,omitempty"`
 	SourceDBClusterIdentifier string              `json:"source_db_cluster_identifier,omitempty" yaml:"source_db_cluster_identifier,omitempty"`
 	Interactive               bool                `json:"interactive,omitempty" yaml:"interactive,omitempty"`
@@ -59,6 +60,7 @@ func DefaultConfig() *Config {
 		},
 		DBUserName:       "root",
 		EnableExportTask: false,
+		SSLMode:          "disable",
 	}
 }
 
@@ -85,6 +87,7 @@ func (cfg *Config) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&cfg.DBUserPassword, "db-user-password", cfg.DBUserPassword, "Cloned Aurora DB user password.")
 	f.StringVar(&cfg.Database, "database", cfg.Database, "Cloned Aurora DB sql target database.")
 	f.BoolVar(&cfg.EnableExportTask, "enable-export-task", cfg.EnableExportTask, "created snapshot export to s3")
+	f.StringVar(&cfg.SSLMode, "ssl-mode", cfg.SSLMode, "ssl mode setting apply only PostgreSQL type Aurora DB")
 	f.StringVar(&cfg.SQLFile, "sql-file", cfg.SQLFile, "")
 	f.StringVar(&cfg.SourceDBClusterIdentifier, "src-db-cluster", cfg.SourceDBClusterIdentifier, "")
 	f.BoolVar(&cfg.Interactive, "interactive", cfg.Interactive, "after mask sql,　Launch an interactive prompt after executing SQL")
@@ -121,6 +124,7 @@ func (cfg *Config) MergeIn(o *Config) *Config {
 	cfg.DBUserPassword = coalesceString(o.DBUserPassword, cfg.DBUserPassword)
 	cfg.Database = coalesceString(o.Database, cfg.Database)
 	cfg.EnableExportTask = o.EnableExportTask || cfg.EnableExportTask
+	cfg.SSLMode = coalesceString(o.SSLMode, cfg.SSLMode)
 	cfg.SQLFile = coalesceString(o.SQLFile, cfg.SQLFile)
 	cfg.SourceDBClusterIdentifier = coalesceString(o.SourceDBClusterIdentifier, cfg.SourceDBClusterIdentifier)
 	cfg.Interactive = o.Interactive || cfg.Interactive

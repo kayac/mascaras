@@ -84,7 +84,7 @@ func TestAppRun(t *testing.T) {
 		{
 			casetag:           "no mask",
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
-			expectedSQL:       "-- nothing to do\n",
+			expectedSQL:       "",
 			noMask:            true,
 		},
 		{
@@ -110,7 +110,7 @@ func TestAppRun(t *testing.T) {
 			app := &App{
 				rdsSvc:       svc,
 				baseInterval: time.Millisecond,
-				newExecuter: func(_ *Config, host string, _ int) (executer, error) {
+				newExecuter: func(_ *Config, dbtype, host string, _ int) (executer, error) {
 					e.host = host
 					return e, nil
 				},
@@ -184,6 +184,7 @@ func TestConfigMergeIn(t *testing.T) {
 		DBUserName:       "admin",
 		DBUserPassword:   "super_password",
 		Database:         "db01",
+		SSLMode:          "disable",
 		EnableExportTask: true,
 		ExportTask: ExportTaskConfig{
 			TaskIdentifier: "test-out",
