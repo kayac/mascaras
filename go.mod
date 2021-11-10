@@ -7,11 +7,12 @@ require (
 	github.com/aws/aws-sdk-go v1.38.57
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/hashicorp/logutils v1.0.0
-	github.com/kayac/go-config v0.5.1
+	github.com/kayac/go-config v0.6.0
 	github.com/lestrrat-go/backoff/v2 v2.0.8
+	github.com/lib/pq v1.10.4
 	github.com/mashiike/didumean v0.1.2
-	github.com/mashiike/mysqlbatch v0.2.2
-	github.com/stretchr/testify v1.6.1
+	github.com/mashiike/mysqlbatch v0.3.0
+	github.com/stretchr/testify v1.7.0
 )
 
 require (

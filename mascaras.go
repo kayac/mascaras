@@ -2,6 +2,7 @@ package mascaras
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/rds/rdsiface"
 	"github.com/chzyer/readline"
 	"github.com/lestrrat-go/backoff/v2"
+	_ "github.com/lib/pq"
 	"github.com/mashiike/mysqlbatch"
 )
 
@@ -23,7 +25,7 @@ type App struct {
 	rdsSvc       rdsiface.RDSAPI
 	cfg          *Config
 	baseInterval time.Duration
-	newExecuter  func(cfg *Config, host string, port int) (executer, error)
+	newExecuter  func(cfg *Config, dbtype string, host string, port int) (executer, error)
 	stdin        io.ReadCloser
 	stderr       io.Writer
 }
@@ -74,19 +76,40 @@ type executer interface {
 	Close() error
 }
 
-func defaultNewExecuter(cfg *Config, host string, port int) (executer, error) {
-	mysqlConfig := &mysqlbatch.Config{
-		User:     cfg.DBUserName,
-		Host:     host,
-		Password: cfg.DBUserPassword,
-		Port:     port,
-		Database: cfg.Database,
+func defaultNewExecuter(cfg *Config, dbtype string, host string, port int) (executer, error) {
+	switch dbtype {
+	case "mysql":
+		mysqlConfig := &mysqlbatch.Config{
+			User:     cfg.DBUserName,
+			Host:     host,
+			Password: cfg.DBUserPassword,
+			Port:     port,
+			Database: cfg.Database,
+		}
+		executer, err := mysqlbatch.New(mysqlConfig)
+		if err != nil {
+			return nil, err
+		}
+		return executer, nil
+	case "postgresql":
+		db, err := sql.Open("postgres",
+			fmt.Sprintf(
+				"user=%s host=%s password=%s port=%d dbname=%s sslmode=%s",
+				cfg.DBUserName,
+				host,
+				cfg.DBUserPassword,
+				port,
+				cfg.Database,
+				cfg.SSLMode,
+			),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return mysqlbatch.NewWithDB(db), nil
 	}
-	executer, err := mysqlbatch.New(mysqlConfig)
-	if err != nil {
-		return nil, err
-	}
-	return executer, nil
+	return nil, errors.New("unknown dbtype")
+
 }
 
 func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error {
@@ -127,6 +150,16 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	if err != nil {
 		return fmt.Errorf("RestoreDBClusterToPointInTime:%w", err)
 	}
+	var dbtype string
+	switch *restoreOutput.DBCluster.Engine {
+	case "aurora", "aurora-mysql": // aurora (for MySQL 5.6-compatible Aurora), aurora-mysql (for MySQL 5.7-compatible Aurora)
+		dbtype = "mysql"
+	case "aurora-postgresql":
+		dbtype = "postgresql"
+	default:
+		log.Printf("[warn] unknown engine `%s` mascaras don't know. decided that it was a MySQL type DB.\n", *restoreOutput.DBCluster.Engine)
+		dbtype = "mysql"
+	}
 	cleanupInfo := &cleanupInfo{
 		tempDBClusterIdentifier: &tempDBClusterIdentifier,
 	}
@@ -164,7 +197,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		return err
 	}
 	if maskSQLExists || app.cfg.Interactive {
-		maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, *tempDBCluster.DBClusterIdentifier, *tempDBClusterEndpoint.Endpoint, int(*tempDBCluster.Port))
+		maskedTime, err := app.executeSQL(ctx, dbtype, maskSQL, maskSQLFile, *tempDBCluster.DBClusterIdentifier, *tempDBClusterEndpoint.Endpoint, int(*tempDBCluster.Port))
 		if err != nil {
 			return err
 		}
@@ -220,8 +253,8 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	return nil
 }
 
-func (app *App) executeSQL(ctx context.Context, maskSQL, maskSQLLoc string, hostID, host string, port int) (time.Time, error) {
-	executer, err := app.newExecuter(app.cfg, host, port)
+func (app *App) executeSQL(ctx context.Context, dbtype string, maskSQL, maskSQLLoc string, hostID, host string, port int) (time.Time, error) {
+	executer, err := app.newExecuter(app.cfg, dbtype, host, port)
 	if err != nil {
 		return time.Time{}, err
 	}
