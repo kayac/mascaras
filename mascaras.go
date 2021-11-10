@@ -98,6 +98,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	if sourceDBClusterIdentifier == "" {
 		return errors.New("source db cluster is required")
 	}
+	var maskSQLExists bool
 	maskSQL := "-- nothing to do\n"
 	if maskSQLFile != "" {
 		var err error
@@ -105,6 +106,7 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 		if err != nil {
 			return err
 		}
+		maskSQLExists = true
 	}
 	log.Println("[debug] sql:", maskSQL)
 	tempDBClusterIdentifier := app.cfg.TempCluster.DBClusterIdentifier
@@ -161,13 +163,14 @@ func (app *App) Run(ctx context.Context, sourceDBClusterIdentifier string) error
 	if err != nil {
 		return err
 	}
-
-	maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, *tempDBCluster.DBClusterIdentifier, *tempDBClusterEndpoint.Endpoint, int(*tempDBCluster.Port))
-	if err != nil {
-		return err
-	}
-	if err := app.waitDBClusterLatestRestorableTime(ctx, tempDBClusterIdentifier, maskedTime); err != nil {
-		return err
+	if maskSQLExists || app.cfg.Interactive {
+		maskedTime, err := app.executeSQL(ctx, maskSQL, maskSQLFile, *tempDBCluster.DBClusterIdentifier, *tempDBClusterEndpoint.Endpoint, int(*tempDBCluster.Port))
+		if err != nil {
+			return err
+		}
+		if err := app.waitDBClusterLatestRestorableTime(ctx, tempDBClusterIdentifier, maskedTime); err != nil {
+			return err
+		}
 	}
 	snapshotIdentifer := tempDBClusterIdentifier + "-snapshot"
 	log.Println("[info] create snapshot:", snapshotIdentifer)

@@ -84,7 +84,7 @@ func TestAppRun(t *testing.T) {
 		{
 			casetag:           "no mask",
 			clusterIdentifier: MockSuccessDBClusterIdentifier,
-			expectedSQL:       "-- nothing to do\n",
+			expectedSQL:       "",
 			noMask:            true,
 		},
 		{
